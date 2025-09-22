@@ -1,7 +1,9 @@
 import streamlit as st
 import requests
 import os
+from dotenv import load_dotenv
 
+load_dotenv()
 st.set_page_config(page_title="RAG Demo", page_icon="📘", layout="wide")
 
 API_URL = os.getenv("RAG_API_URL")  # adjust if hosted elsewhere
