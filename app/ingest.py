@@ -41,19 +41,22 @@ def update_embedded_log(doc_name: str):
 def iter_pdf_pages(skip_docs: set):
     """
     Generator over (file_path, page_number, page_text)
-    Skips docs already embedded.
+    Scans DOCS_DIR recursively and skips already embedded docs.
     """
-    for file_path in glob.glob(str(DOCS_DIR / "*.pdf")):
+    for file_path in DOCS_DIR.rglob("*.pdf"):  # recursive search
         file_name = Path(file_path).name
         if file_name in skip_docs:
             logger.info(f"⏩ Skipping {file_name}, already ingested")
             continue
 
-        with pdfplumber.open(file_path) as pdf:
-            for page_num, page in enumerate(pdf.pages, start=1):
-                text = page.extract_text() or ""
-                if text.strip():
-                    yield file_path, page_num, text
+        try:
+            with pdfplumber.open(file_path) as pdf:
+                for page_num, page in enumerate(pdf.pages, start=1):
+                    text = page.extract_text() or ""
+                    if text.strip():
+                        yield file_path, page_num, text
+        except Exception as e:
+            logger.error(f"❌ Failed to process {file_path}: {e}")
 
 
 def chunk_sentences(text, splitter):
