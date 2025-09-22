@@ -21,7 +21,7 @@ app.add_middleware(
 @app.on_event("startup")
 def startup_event():
     # Run ingestion in background thread
-    threading.Thread(target=init_ingest, daemon=True).start()
+    threading.Thread(target=init_ingest, daemon=True, name="Document Ingestion Thread").start()
 
 class IngestRequest(BaseModel):
     doc_id: str

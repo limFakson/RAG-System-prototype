@@ -7,7 +7,10 @@ from app.model_embeddings import get_embeddings_openai
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from app.init_pinecone import index  # your pinecone index object
 from dotenv import load_dotenv
+import logging
 
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 load_dotenv()
 
 # Configs
@@ -43,7 +46,7 @@ def iter_pdf_pages(skip_docs: set):
     for file_path in glob.glob(str(DOCS_DIR / "*.pdf")):
         file_name = Path(file_path).name
         if file_name in skip_docs:
-            print(f"⏩ Skipping {file_name}, already ingested")
+            logger.info(f"⏩ Skipping {file_name}, already ingested")
             continue
 
         with pdfplumber.open(file_path) as pdf:
@@ -54,7 +57,6 @@ def iter_pdf_pages(skip_docs: set):
 
 
 def chunk_sentences(text, splitter):
-    # Optional: swap this with spaCy sentence splitter for finer control
     return splitter.split_text(text)
 
 
@@ -110,7 +112,7 @@ def embed_and_upsert_stream(skip_docs: set):
         metas = [c["metadata"] for c in batch]
         doc_names = [c["doc_name"] for c in batch]
 
-        # assume all in batch come from same doc
+        # in batch come from same doc
         current_doc = doc_names[0]
 
         embeddings = get_embeddings_openai(texts)
@@ -122,16 +124,16 @@ def embed_and_upsert_stream(skip_docs: set):
 
         index.upsert(vectors)
         total += len(vectors)
-        print(f"📤 Upserted {len(vectors)} vectors. Total so far: {total}")
+        logger.info(f"📤 Upserted {len(vectors)} vectors. Total so far: {total}")
 
     # mark completed doc
     if current_doc:
         update_embedded_log(current_doc)
-        print(f"✅ Completed ingestion for {current_doc}")
+        logger.info(f"✅ Completed ingestion for {current_doc}")
 
 
 def init_ingest():
-    print("🚀 Starting ingestion of new documents...")
+    logger.info("🚀 Starting ingestion of new documents...")
     skip_docs = load_embedded_log()
     embed_and_upsert_stream(skip_docs)
-    print("🎉 Ingestion completed.")
+    logger.info("🎉 Ingestion completed.")
