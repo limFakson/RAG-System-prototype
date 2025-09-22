@@ -1,9 +1,10 @@
 import streamlit as st
 import requests
+import os
 
 st.set_page_config(page_title="RAG Demo", page_icon="📘", layout="wide")
 
-API_URL = "http://localhost:8000/query"  # adjust if hosted elsewhere
+API_URL = os.getenv("RAG_API_KEY")  # adjust if hosted elsewhere
 
 st.title("📘 RAG Demo with Pinecone + OpenAI Embeddings")
 
