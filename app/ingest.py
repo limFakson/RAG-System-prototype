@@ -8,6 +8,8 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from app.init_pinecone import index  # your pinecone index object
 from dotenv import load_dotenv
 import logging
+import re
+import unicodedata
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -23,6 +25,15 @@ CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", 600))
 CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", 100))
 BATCH_SIZE = int(os.getenv("EMBED_BATCH_SIZE", 16))
 
+
+def sanitize_id(raw_id: str) -> str:
+    # Normalize unicode (turn “—” into “-” etc.)
+    normalized = unicodedata.normalize("NFKD", raw_id)
+    # Encode to ASCII, ignore non-ascii chars
+    ascii_only = normalized.encode("ascii", "ignore").decode()
+    # Replace any illegal chars with underscore
+    safe_id = re.sub(r"[^a-zA-Z0-9_\-]", "_", ascii_only)
+    return safe_id
 
 def load_embedded_log():
     """Load set of already-processed docs."""
@@ -40,8 +51,8 @@ def update_embedded_log(doc_name: str):
 
 def iter_pdf_pages(skip_docs: set):
     """
-    Generator over (file_path, page_number, page_text)
-    Scans DOCS_DIR recursively and skips already embedded docs.
+    Generator over (file_path, page_number, page_text).
+    Logs a doc as completed only after fully iterating its pages.
     """
     for file_path in DOCS_DIR.rglob("*.pdf"):  # recursive search
         file_name = Path(file_path).name
@@ -55,6 +66,11 @@ def iter_pdf_pages(skip_docs: set):
                     text = page.extract_text() or ""
                     if text.strip():
                         yield file_path, page_num, text
+
+            # ✅ Once we’ve iterated ALL pages, mark this doc as ingested
+            update_embedded_log(file_name)
+            logger.info(f"✅ Completed ingestion for {file_name}")
+
         except Exception as e:
             logger.error(f"❌ Failed to process {file_path}: {e}")
 
@@ -77,8 +93,9 @@ def load_and_chunk(skip_docs: set):
         file_name = Path(file_path).name
         sub_chunks = chunk_sentences(page_text, splitter)
         for i, sub in enumerate(sub_chunks):
+            safe_id = sanitize_id(f"{file_stem}_p{page_num}_c{i}")
             yield {
-                "id": f"{file_stem}_p{page_num}_c{i}",
+                "id": safe_id,
                 "text": sub.strip(),
                 "metadata": {
                     "source": file_name,
@@ -128,11 +145,6 @@ def embed_and_upsert_stream(skip_docs: set):
         index.upsert(vectors)
         total += len(vectors)
         logger.info(f"📤 Upserted {len(vectors)} vectors. Total so far: {total}")
-
-    # mark completed doc
-    if current_doc:
-        update_embedded_log(current_doc)
-        logger.info(f"✅ Completed ingestion for {current_doc}")
 
 
 def init_ingest():
