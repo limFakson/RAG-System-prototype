@@ -11,10 +11,15 @@ API_URL = os.getenv("RAG_API_URL")  # adjust if hosted elsewhere
 st.title("📘 RAG Demo with Pinecone + OpenAI Embeddings")
 
 # Input box
-query = st.text_input("Ask a question about the documents:")
+query = st.text_input(
+            "Ask a question about the documents:", 
+            key="query_input",
+            on_change=lambda: st.session_state.update({"run_query": True})
+        )
 
 # Button
-if st.button("Submit") and query.strip():
+if st.session_state.get("run_query") and query.strip():
+    st.session_state.run_query = False
     with st.spinner("Searching and thinking..."):
         try:
             # call FastAPI backend

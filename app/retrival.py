@@ -11,14 +11,21 @@ EMBED_MODEL = os.getenv("OPENAI_EMBED_MODEL", "text-embedding-3-small")
 CHAT_MODEL = os.getenv("OPENAI_CHAT_MODEL", "gpt-4o-mini")
 
 PROMPT_TEMPLATE = """
-You are a helpful assistant. Answer the question using the context below.
-If the answer requires combining multiple facts, reason step by step.
-If the answer is not in the context, just say "I don't know".
+You are a helpful assistant. 
+Answer the question using only the context below.
+- If multiple points are mentioned in the context, expand on each of them clearly.
+- If the answer requires combining multiple facts, reason step by step.
+- If the answer is not in the context, just say "I don't know"
+- Organize your answer into sections or bullet points for clarity.
+- Do not invent facts that are not in the context.
+- Always include which source(s) each part of your answer comes from.
 
 Context:
 {contexts}
 
 Question: {question}
+
+Provide a detailed and well-structured answer using only the given context:
 """
 
 # ----------------------------
@@ -67,7 +74,7 @@ async def embed_query(text: str) -> list[float]:
     return resp.data[0].embedding
 
 
-async def retrieve_docs(query: str, k: int = 5):
+async def retrieve_docs(query: str, k: int = 10):
     """
     Expand query with HyDE + multiple rewrites, embed all,
     fetch results from Pinecone, and merge unique matches.
